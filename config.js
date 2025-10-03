@@ -1,6 +1,4 @@
-import { Storage } from './storage.js';
-
-// handles config UI and billboard uploads
+// config.js (global script) - handles config UI and billboard uploads
 document.addEventListener('DOMContentLoaded', ()=>{
   const configBtn = document.getElementById('config-btn');
   const configPanel = document.getElementById('config-panel');
@@ -76,23 +74,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(pwClose) pwClose.addEventListener('click', ()=>{ hidePwModal(); });
 
   function loadPreviews(){
-    const l = Storage.getBillboard('left');
-    const c = Storage.getBillboard('center');
-    const r = Storage.getBillboard('right');
-    const b = Storage.getBackground();
+    const l = window.Storage.getBillboard('left');
+    const c = window.Storage.getBillboard('center');
+    const r = window.Storage.getBillboard('right');
+    const b = window.Storage.getBackground();
     previewLeft.src = l || '';
     if(previewCenter) previewCenter.src = c || '';
     previewRight.src = r || '';
     if(previewBg) previewBg.src = b || '';
     // load saved settings
-  const savedBb = Storage.getSetting('billboardOffset') || 80;
-  const savedObs = Storage.getSetting('obstacleSpeed') || 160;
-  const savedSpacing = Storage.getSetting('obstacleSpacing');
-  const savedWidth = Storage.getSetting('widthScale') || false;
-  const savedJump = Storage.getSetting('jumpHeight') || 120;
-  const savedMinGrav = Storage.getSetting('minGravityMult') || 0.45;
-  const savedGravGlobal = Storage.getSetting('gravityGlobalMult') || 1;
-  const savedShowPhysics = Storage.getSetting('showPhysics') || false;
+  const savedBb = window.Storage.getSetting('billboardOffset') || 80;
+  const savedObs = window.Storage.getSetting('obstacleSpeed') || 160;
+  const savedSpacing = window.Storage.getSetting('obstacleSpacing');
+  const savedWidth = window.Storage.getSetting('widthScale') || false;
+  const savedJump = window.Storage.getSetting('jumpHeight') || 120;
+  const savedMinGrav = window.Storage.getSetting('minGravityMult') || 0.45;
+  const savedGravGlobal = window.Storage.getSetting('gravityGlobalMult') || 1;
+  const savedShowPhysics = window.Storage.getSetting('showPhysics') || false;
   if(bbOffset) bbOffset.value = savedBb;
   if(obsSpeed) obsSpeed.value = savedObs;
   if(obsSpacing) obsSpacing.value = (typeof savedSpacing === 'number') ? savedSpacing : 50;

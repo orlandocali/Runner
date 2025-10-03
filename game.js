@@ -1,6 +1,8 @@
-import { Storage } from './storage.js';
-import * as physics from './physics.js';
-import { initController, Keys } from './controller.js';
+// game.js converted to global script. relies on window.Storage, window._physics, window.initController
+const Storage = window.Storage;
+const physics = window._physics;
+const initController = window.initController;
+const Keys = window.Keys;
 
 // Simple runner game using canvas. Saves highscores and supports custom billboards via Storage helpers.
 const canvas = document.getElementById('game');
@@ -52,6 +54,7 @@ let lastSpawn = 0;
 let startTime = 0;
 let billboardLeft = null, billboardCenter = null, billboardRight = null;
 let backgroundImg = null;
+let layoutYOffset = 0; // when narrow widths, shift gameplay area down
 // user-configurable settings (defaults)
 let cfgBillboardOffset = Storage.getSetting('billboardOffset') || 80; // px from top
 let cfgObstacleSpeed = Storage.getSetting('obstacleSpeed') || 160; // px/sec
@@ -68,6 +71,12 @@ function resizeCanvas(){
   canvas.style.height = h + 'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
   width = w; height = h;
+  // compute layout Y offset for narrow viewports (<900px)
+  // increased offsets so the gameplay (player, track, obstacles) sits lower on small screens
+  if(width < 600) layoutYOffset = Math.round(height * 0.22);
+  else if(width < 900) layoutYOffset = Math.round(height * 0.18);
+  else layoutYOffset = 0;
+  window._layoutYOffset = layoutYOffset;
   // notify physics module about resize so it can recalc scales
   if(window.resizePhysics) window.resizePhysics(w, h);
   // refresh local references
@@ -86,8 +95,10 @@ function resizeCanvas(){
   const safety = 20; // pixels between jumper peak and billboard bottom used elsewhere (increased for safety)
   // minimum allowed jump we want to guarantee (px) -- scale with viewport but keep a baseline
   const minAllowedJump = Math.max(110, Math.round(height * 0.16));
-  // billboardBottom must be <= groundY - player.h - safety - minAllowedJump
-  const maxBbY = Math.max(8, Math.round((groundY - player.h - safety - minAllowedJump) - bbH));
+  // billboardBottom must be <= displayedGround - player.h - safety - minAllowedJump
+  const physG = (window._physics && window._physics.getGroundY) ? window._physics.getGroundY() : Math.round(height * 0.72);
+  const displayedGround = physG + layoutYOffset;
+  const maxBbY = Math.max(8, Math.round((displayedGround - player.h - safety - minAllowedJump) - bbH));
   let finalBbY = Math.min(defaultBbY, maxBbY);
   // ensure billboards are below the top overlay (menu/buttons)
   try{
@@ -156,7 +167,9 @@ saveNameInput.value = '';
 
 function startGame(){ running = true; score=0; distance=0; obstacles=[]; coins=[]; lastSpawn=0; startTime = performance.now(); gameOverPanel.classList.add('hidden');
   player.x = Math.round(width * 0.09);
-  player.y = groundY - player.h;
+  // position player relative to physics ground plus layoutYOffset
+  const physG = (window._physics && window._physics.getGroundY) ? window._physics.getGroundY() : Math.round(height * 0.72);
+  player.y = physG + layoutYOffset - player.h;
   // update Start button to show Restart while running
   if(startBtn) startBtn.textContent = 'Restart';
 }
@@ -181,7 +194,9 @@ function jump(){
   const safety = 12; // pixels between jumper peak and billboard bottom
   // allowed jump height must satisfy: peakY = groundY - player.h - h <= billboardBottom - safety
   // rearranged: h <= (groundY - player.h) - (billboardBottom + safety)
-  const allowed = Math.max(8, (groundY - player.h) - (billboardBottom + safety));
+  // use displayed ground (physics ground + layoutYOffset)
+  const displayedGround2 = ((window._physics && window._physics.getGroundY) ? window._physics.getGroundY() : groundY) + layoutYOffset;
+  const allowed = Math.max(8, (displayedGround2 - player.h) - (billboardBottom + safety));
   if(desired > allowed) desired = allowed;
   if(phys && phys.jump) phys.jump(desired);
   else if(window.jump) window.jump();
@@ -380,10 +395,13 @@ function render(){ // background
   drawBillboard(bx1, bbY, bbW, bbH, billboardLeft);
   drawBillboard(bx2, bbY, bbW, bbH, billboardCenter);
   drawBillboard(bx3, bbY, bbW, bbH, billboardRight);
+  // draw ground at displayed ground (physics ground + layoutYOffset)
+  const physG = (window._physics && window._physics.getGroundY) ? window._physics.getGroundY() : groundY;
+  const displayedGround = physG + layoutYOffset;
   // ground
-  ctx.fillStyle='#d3e39f'; ctx.fillRect(0, groundY, width, height - groundY);
+  ctx.fillStyle='#d3e39f'; ctx.fillRect(0, displayedGround, width, height - displayedGround);
   // path
-  ctx.fillStyle='#b8855a'; ctx.fillRect(0, groundY - 40, width, 40);
+  ctx.fillStyle='#b8855a'; ctx.fillRect(0, displayedGround - 40, width, 40);
   // flowers (moved down a bit relative to new ground)
   // continuous left-scrolling flower pattern that repeats seamlessly
   const t = performance.now() / 1000; // seconds
@@ -391,7 +409,7 @@ function render(){ // background
   const spacing = Math.max(60, Math.round(width * 0.06));
   const repeatWidth = spacing * 6; // pattern repeat width (enough to cover)
   const base = (t * scrollSpeed) % repeatWidth; // continuous offset
-  const fy = groundY + Math.round((height - groundY) * 0.18);
+  const fy = displayedGround + Math.round((height - displayedGround) * 0.18);
   // draw flowers across an extended range so wrapping is invisible
   for(let x = -repeatWidth; x < width + repeatWidth; x += spacing){
     const rx = x - base;
@@ -399,11 +417,11 @@ function render(){ // background
     ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(rx, fy, Math.max(2, Math.round(width*0.004)), 0, Math.PI*2); ctx.fill();
   }
   // obstacles
-  for(let o of obstacles){ if(o.type==='rock'){ ctx.fillStyle='#666'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2, o.y+o.h/2, o.w/2, o.h/2, 0, 0, Math.PI*2); ctx.fill(); } else { ctx.fillStyle='#b04'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.fillStyle='green'; ctx.fillRect(o.x+Math.max(6, o.w*0.15), o.y - Math.max(12, o.h*0.3), o.w - Math.max(12, o.w*0.3), Math.max(12, o.h*0.4)); } }
+  for(let o of obstacles){ if(o.type==='rock'){ ctx.fillStyle='#666'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2, o.y+o.h/2 + layoutYOffset, o.w/2, o.h/2, 0, 0, Math.PI*2); ctx.fill(); } else { ctx.fillStyle='#b04'; ctx.fillRect(o.x,o.y + layoutYOffset,o.w,o.h); ctx.fillStyle='green'; ctx.fillRect(o.x+Math.max(6, o.w*0.15), o.y - Math.max(12, o.h*0.3) + layoutYOffset, o.w - Math.max(12, o.w*0.3), Math.max(12, o.h*0.4)); } }
  // coins
- for(let c of coins){ ctx.fillStyle='gold'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='orange'; ctx.fillText('G', c.x-4, c.y+4); }
+ for(let c of coins){ ctx.fillStyle='gold'; ctx.beginPath(); ctx.arc(c.x, c.y + layoutYOffset, c.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='orange'; ctx.fillText('G', c.x-4, c.y+4 + layoutYOffset); }
  // player
- ctx.fillStyle='#8b2e6b'; ctx.fillRect(player.x, player.y, player.w, player.h);
+ ctx.fillStyle='#8b2e6b'; ctx.fillRect(player.x, player.y + layoutYOffset, player.w, player.h);
  // UI overlays handled elsewhere
   // update debug box if present
   try{
@@ -420,7 +438,7 @@ function render(){ // background
   const dbgOs = document.getElementById('dbg-os');
   const dbgOg = document.getElementById('dbg-og');
   // show the configured jump height; but the runtime jump may be scaled depending on viewport
-  if(dbgJh) dbgJh.textContent = (Storage.getSetting('jumpHeight') || window._cfg_jumpHeight || 120);
+    if(dbgJh) dbgJh.textContent = (Storage.getSetting('jumpHeight') || window._cfg_jumpHeight || 120);
     if(dbgOs) dbgOs.textContent = (Storage.getSetting('obstacleSpeed') || cfgObstacleSpeed);
     if(dbgOg) dbgOg.textContent = (Storage.getSetting('obstacleSpacing') || 50);
   }catch(e){ /* ignore */ }
@@ -429,7 +447,7 @@ function render(){ // background
   try{
     const dbg = document.getElementById('debug-box');
     const header = dbg ? dbg.querySelector('.dbg-header') : null;
-    if(dbg){
+      if(dbg){
       // restore saved position (if any)
       const savedX = parseInt(localStorage.getItem('dbg:x'));
       const savedY = parseInt(localStorage.getItem('dbg:y'));
@@ -443,6 +461,13 @@ function render(){ // background
         dbg.style.left = nx + 'px'; dbg.style.top = ny + 'px'; dbg.style.transform = 'none'; dbg.style.bottom = 'auto';
         // mark as user-positioned so auto-centering won't override
         dbg.dataset.userPos = '1';
+      }
+      else {
+        // if no saved position, place telemetry at bottom-left for narrow screens
+        const wrapRect = document.getElementById('game-wrap').getBoundingClientRect();
+        const defaultLeft = 8;
+        const defaultTop = Math.max(8, wrapRect.height - (dbg.offsetHeight || 140) - 8);
+        dbg.style.left = defaultLeft + 'px'; dbg.style.top = defaultTop + 'px'; dbg.style.transform = 'none'; dbg.dataset.userPos = '0';
       }
       if(header && !header.dataset.dragInit){
         header.dataset.dragInit = '1';
@@ -508,11 +533,11 @@ loadBillboards();
 // load any saved billboards initially
 // (coins and canvas init are performed when initGame is called)
 
-export function initGame(){
+function initGame(){
   // initialize physics with current canvas size
   width = canvas.clientWidth || window.innerWidth;
   height = canvas.clientHeight || window.innerHeight;
-  physics.initPhysics(width, height);
+  if(physics && typeof physics.initPhysics === 'function') physics.initPhysics(width, height);
   // initialize canvas and scale
   resizeCanvas();
   // populate a few starting coins
@@ -525,3 +550,5 @@ export function initGame(){
   function loop(now){ try{ const dt = now - last; last = now; update(dt); render(); } catch(e){ console.error('Game loop error', e); } finally{ requestAnimationFrame(loop); } }
   requestAnimationFrame(loop);
 }
+// expose initGame globally for main.js
+window.initGame = initGame;

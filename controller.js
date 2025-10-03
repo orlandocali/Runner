@@ -1,9 +1,9 @@
-// controller.js - input handling (ES module)
-export const Keys = {};
+// controller.js - input handling (global script)
+window.Keys = window.Keys || {};
 
-export function initController(){
+window.initController = function(){
   document.addEventListener('keydown', e=>{
-    Keys[e.code]=true;
+    window.Keys[e.code]=true;
     // Spacebar triggers jump; prevent default to avoid page scroll
     if(e.code==='Space'){
       // ignore if focus is in an input or textarea
