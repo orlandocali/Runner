@@ -1,0 +1,10 @@
+{
+  "name": "runner-game",
+  "version": "1.0.0",
+  "description": "Simple static runner game with billboard config and highscores",
+  "scripts": {
+    "start": "npx http-server -c-1 -p 8080"
+  },
+  "author": "",
+  "license": "MIT"
+}

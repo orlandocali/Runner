@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Runner - Custom Billboards</title>
+  <!-- Bulma CSS for simple open-source UI components -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- top banner removed; controls and score are rendered over the game canvas -->
+
+  <main>
+    <div id="game-wrap">
+      <div id="top-overlay">
+        <div class="overlay-left">
+          <div class="label score-label">Score: <span id="score">0</span></div>
+          <div class="label distance-label">Distance: <span id="distance">0</span>m</div>
+        </div>
+        <div class="overlay-right">
+          <button id="config-btn" class="button is-light is-small">Config</button>
+          <button id="scores-btn" class="button is-light is-small">High Scores</button>
+        </div>
+      </div>
+      <canvas id="game" width="1280" height="720"></canvas>
+      <div id="bottom-controls">
+        <button id="start-btn" class="button is-primary">Start</button>
+        <button id="restart-btn" class="button is-warning">Restart</button>
+      </div>
+      <button id="jump-btn" class="jump-button">Jump</button>
+    </div>
+
+    <div id="config-panel" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head"><p class="modal-card-title">Billboard Configuration</p><button id="close-config" class="delete" aria-label="close"></button></header>
+        <section class="modal-card-body">
+      <div class="upload-row">
+        <label>Left Billboard image
+          <input type="file" id="billboard-left" accept="image/*" />
+        </label>
+        <img id="preview-left" class="preview" alt="left preview" />
+      </div>
+      <div class="upload-row">
+        <label>Center Billboard image
+          <input type="file" id="billboard-center" accept="image/*" />
+        </label>
+        <img id="preview-center" class="preview" alt="center preview" />
+      </div>
+      <div class="upload-row">
+        <label>Right Billboard image
+          <input type="file" id="billboard-right" accept="image/*" />
+        </label>
+        <img id="preview-right" class="preview" alt="right preview" />
+      </div>
+      <div class="upload-row">
+        <label>Background image
+          <input type="file" id="background-image" accept="image/*" />
+        </label>
+        <img id="preview-bg" class="preview" alt="background preview" />
+      </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button id="save-config" class="button is-success">Save</button>
+          <button id="reset-config" class="button">Reset to default</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="scores-panel" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head"><p class="modal-card-title">High Scores</p><button id="close-scores" class="delete" aria-label="close"></button></header>
+        <section class="modal-card-body">
+          <div class="field has-addons">
+            <div class="control is-expanded"><input id="scores-find" class="input" placeholder="Find by name..." /></div>
+            <div class="control"><button id="scores-find-btn" class="button">Find</button></div>
+          </div>
+          <div class="table-container">
+            <table id="scores-table" class="table is-fullwidth is-striped is-hoverable">
+              <thead>
+                <tr>
+                  <th><button id="sort-pos" class="button is-small" disabled>Pos</button></th>
+                  <th><button id="sort-name" class="button is-small">Name</button></th>
+                  <th><button id="sort-points" class="button is-small">Points</button></th>
+                  <th><button id="sort-distance" class="button is-small">Distance</button></th>
+                </tr>
+              </thead>
+              <tbody id="scores-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button id="scores-prev" class="button">Prev</button>
+            <button id="scores-next" class="button">Next</button>
+            <button id="clear-scores" class="button is-danger">Clear Scores</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <div id="game-over" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head"><p class="modal-card-title">Game Over</p></header>
+        <section class="modal-card-body">
+          <p>Your score: <strong><span id="final-score">0</span></strong></p>
+          <div class="field"><label class="label">Save as</label><div class="control"><input id="save-name" class="input" /></div></div>
+        </section>
+        <footer class="modal-card-foot">
+          <button id="save-score-btn" class="button is-success">Save Score</button>
+          <button id="close-gameover" class="button">Close</button>
+        </footer>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="storage.js"></script>
+  <script src="config.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

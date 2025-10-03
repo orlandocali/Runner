@@ -1,0 +1,40 @@
+* { box-sizing: border-box; }
+.body, body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #cbeef2; height:100vh; }
+.navbar { box-shadow: 0 2px 6px rgba(0,0,0,0.06) }
+.hero, main { margin: 0 }
+/* full-screen game container */
+#game-wrap { position:relative; width:100vw; height:calc(100vh - 64px); overflow:hidden; }
+canvas { width:100%; height:100%; display:block }
+
+/* bottom controls */
+#bottom-controls { position:absolute; left:16px; bottom:20px; display:flex; gap:8px }
+.jump-button { position:absolute; right:20px; bottom:18px; background:#e74c3c; color:#fff; border:none; border-radius:12px; padding:20px 28px; font-size:20px; box-shadow:0 6px 16px rgba(0,0,0,0.2); }
+.jump-button:active { transform: translateY(2px); }
+
+.panel { display:none }
+.modal.is-active { display:block }
+.upload-row { display:flex; align-items:center; gap:8px; margin-bottom:8px }
+.preview { width:120px; height:60px; object-fit:cover; border:1px solid #ddd }
+#preview-bg { width:200px; height:80px }
+#preview-center { width:140px; height:70px }
+.config-actions { display:flex; gap:8px; margin-top:8px }
+#logged-as { font-weight:700; margin-left:8px }
+/* small responsive */
+@media (max-width:900px){ canvas{width:100%;height:480px} .modal-card{ width:95%; margin: auto } }
+
+/* top overlay */
+#top-overlay { position:absolute; left:0; right:0; top:12px; display:flex; justify-content:space-between; align-items:center; padding:0 18px; pointer-events:none }
+#top-overlay .overlay-left, #top-overlay .overlay-right { pointer-events:auto }
+.score-label, .distance-label { font-family: 'Montserrat', sans-serif; font-weight:700; color:#1b5e20; margin-right:12px }
+.distance-label { color:#0d47a1 }
+
+/* selected/highlighted score row */
+tr.is-selected { background: linear-gradient(90deg, rgba(255,255,0,0.12), rgba(255,255,0,0.04)); }
+
+/* highlight animation: fade out yellow glow */
+.highlight{ animation: highlightFade 2.5s ease-out forwards; }
+@keyframes highlightFade{
+	0% { background-color: rgba(255,255,0,0.25); }
+	60% { background-color: rgba(255,255,0,0.12); }
+	100% { background-color: transparent; }
+}
