@@ -26,6 +26,7 @@
         </div>
       </div>
       <canvas id="game" width="1280" height="720"></canvas>
+  <div id="signature">orlandocali</div>
       <div id="bottom-controls">
         <button id="start-btn" class="button is-primary">Start</button>
         <button id="restart-btn" class="button is-warning">Restart</button>
@@ -38,6 +39,25 @@
       <div class="modal-card">
         <header class="modal-card-head"><p class="modal-card-title">Billboard Configuration</p><button id="close-config" class="delete" aria-label="close"></button></header>
         <section class="modal-card-body">
+      <div class="field">
+        <label class="label">Billboards vertical offset</label>
+        <div class="control"><input id="setting-bb-offset" type="range" min="0" max="200" value="80" /></div>
+        <p class="help">Lower value moves billboards up; higher value moves them down (px relative)</p>
+      </div>
+      <div class="field">
+        <label class="label">Obstacle spacing</label>
+        <div class="control"><input id="setting-obs-spacing" type="range" min="0" max="100" value="50" /></div>
+        <p class="help">Lower value increases average gap between obstacles (easier)</p>
+      </div>
+      <div class="field">
+        <label class="label">Obstacle base speed</label>
+        <div class="control"><input id="setting-obs-speed" type="range" min="80" max="360" value="160" /></div>
+        <p class="help">Base obstacle speed in px/sec (lower is easier)</p>
+      </div>
+      <div class="field">
+        <label class="checkbox"><input id="setting-width-scale" type="checkbox" /> Use width-based physics scaling</label>
+        <p class="help">When enabled jump/gravity scale with window width (alternative to height)</p>
+      </div>
       <div class="upload-row">
         <label>Left Billboard image
           <input type="file" id="billboard-left" accept="image/*" />
@@ -99,6 +119,21 @@
             <button id="scores-next" class="button">Next</button>
             <button id="clear-scores" class="button is-danger">Clear Scores</button>
           </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- password modal for protected config/clear actions -->
+    <div id="pw-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head"><p class="modal-card-title">Enter password</p><button id="close-pw" class="delete" aria-label="close"></button></header>
+        <section class="modal-card-body">
+          <div class="field"><label class="label">Password</label><div class="control"><input id="pw-input" class="input" type="password" /></div></div>
+        </section>
+        <footer class="modal-card-foot">
+          <button id="pw-ok" class="button is-success">OK</button>
+          <button id="pw-cancel" class="button">Cancel</button>
         </footer>
       </div>
     </div>

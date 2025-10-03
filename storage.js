@@ -18,3 +18,7 @@ const Storage = {
   setBackground(dataURL){ if(dataURL) localStorage.setItem('background:image', dataURL); else localStorage.removeItem('background:image'); }
 };
 // convenience: center billboard uses key 'billboard:center'
+
+// settings helper (JSON-serialized)
+Storage.getSetting = function(key){ try{ const v = localStorage.getItem('runner:setting:' + key); return v === null ? null : JSON.parse(v); }catch(e){ return null } };
+Storage.setSetting = function(key, value){ try{ if(value === null || value === undefined) localStorage.removeItem('runner:setting:' + key); else localStorage.setItem('runner:setting:' + key, JSON.stringify(value)); }catch(e){} };

@@ -1,7 +1,10 @@
 // Simple runner game using canvas. Saves highscores and supports custom billboards via Storage helpers.
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-let width = canvas.width, height = canvas.height;
+let width = canvas.clientWidth || window.innerWidth;
+let height = canvas.clientHeight || window.innerHeight;
+const BASE_HEIGHT = 720; // reference for physics scaling
+let physicsScale = height / BASE_HEIGHT;
 
 // UI elements
 const scoreEl = document.getElementById('score');
@@ -31,25 +34,50 @@ const sortDistanceBtn = document.getElementById('sort-distance');
 let scoresPageSize = 6;
 let scoresPage = 0;
 let scoresListCached = [];
-let scoresSort = { key: 'score', dir: -1 }; // default: points desc then distance desc
+let scoresSort = { key: 'score', dir: 1 }; // default: points desc then distance desc
 
 let keys = {};
 let running = false;
 let score = 0;
 let distance = 0;
-let player = { x:120, y:380, w:44, h:64, vy:0, onGround:true };
-// tuned values: lower gravity and stronger jump to increase "time on air"
-// tuned values: lower gravity and stronger jump to increase "time on air"
+// will be computed from canvas size
+let gravity = 0.12 * physicsScale;
+let groundY = Math.round(height * 0.72); // lower the floor slightly
+let player = { x:120, y: groundY - 64, w:44, h:64, vy:0, onGround:true };
 // tuned physics: lower gravity for longer airtime but small initial impulse so peak stays below billboards
-let gravity = 0.12;
 let obstacles = [];
 let coins = [];
 let lastSpawn = 0;
 let startTime = 0;
 let billboardLeft = null, billboardCenter = null, billboardRight = null;
 let backgroundImg = null;
+// user-configurable settings (defaults)
+let cfgBillboardOffset = Storage.getSetting('billboardOffset') || 80; // px from top
+let cfgObstacleSpeed = Storage.getSetting('obstacleSpeed') || 160; // px/sec
+let cfgWidthScale = Storage.getSetting('widthScale') || false; // bool: scale physics by width instead of height
 
-function resizeCanvas(){ width=canvas.width; height=canvas.height; }
+function resizeCanvas(){
+  const w = canvas.clientWidth || window.innerWidth;
+  const h = canvas.clientHeight || window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  // set internal resolution for crispness
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  width = w; height = h;
+  physicsScale = height / BASE_HEIGHT;
+  groundY = Math.round(height * 0.72);
+  // keep player standing on ground after resize
+  player.y = groundY - player.h;
+  // update gravity to match new scale so jump airtime is consistent
+  gravity = 0.12 * physicsScale;
+  // reload settings in case they changed via config modal
+  cfgBillboardOffset = Storage.getSetting('billboardOffset') || cfgBillboardOffset;
+  cfgObstacleSpeed = Storage.getSetting('obstacleSpeed') || cfgObstacleSpeed;
+  cfgWidthScale = Storage.getSetting('widthScale') || cfgWidthScale;
+}
 window.addEventListener('resize', resizeCanvas);
 
 // load billboards images
@@ -77,7 +105,10 @@ saveNameInput.value = '';
 document.addEventListener('keydown', e=>{ keys[e.code]=true; if(e.code==='Space'){ e.preventDefault(); jump(); } });
 document.addEventListener('keyup', e=>{ keys[e.code]=false; });
 
-function startGame(){ running = true; score=0; distance=0; obstacles=[]; coins=[]; lastSpawn=0; startTime = performance.now(); gameOverPanel.classList.add('hidden'); }
+function startGame(){ running = true; score=0; distance=0; obstacles=[]; coins=[]; lastSpawn=0; startTime = performance.now(); gameOverPanel.classList.add('hidden');
+  player.x = Math.round(width * 0.09);
+  player.y = groundY - player.h;
+}
 
 startBtn.addEventListener('click', ()=>{ if(!running) startGame(); });
 if(jumpBtn) jumpBtn.addEventListener('click', ()=>{ jump(); });
@@ -85,35 +116,52 @@ if(jumpBtn) jumpBtn.addEventListener('click', ()=>{ jump(); });
 if(restartBtn) restartBtn.addEventListener('click', ()=>{ startGame(); });
 
 function jump(){
-  // lower jump height while keeping airtime
-  if(player.onGround){ player.vy = -6.0; player.onGround=false; }
+  if(player.onGround){
+    // use physicsScale so jump airtime remains consistent across resolutions
+    const baseJump = 6.0;
+    const usedScale = cfgWidthScale ? (width / 1280) : physicsScale;
+    player.vy = -baseJump * usedScale;
+    player.onGround = false;
+  }
 }
 
 function spawnObstacle(now){
-  // increase minimum spawn distance to give player more reaction time early on
-  if(now - lastSpawn < 1400) return;
-  lastSpawn = now + Math.random()*500 - 200;
+  // obstacle spacing control (percentage): lower -> easier -> larger spacing
+  const spacingPct = Storage.getSetting('obstacleSpacing');
+  const pct = (typeof spacingPct === 'number') ? spacingPct : 50;
+  // map pct(0..100) -> minIntervalMs roughly 2400..600 (lower pct => larger interval)
+  const minIntervalMs = 600 + (100 - pct) * 18; // 600..2400
+  if(now - lastSpawn < minIntervalMs) return;
+  lastSpawn = now + Math.random()*Math.max(200, minIntervalMs * 0.4) - 200;
   const type = Math.random()<0.7? 'rock' : 'box';
-  const x = width + 220; // spawn further off-screen
-  const obsY = 420; // moved up floor reference
-  if(type==='rock') obstacles.push({x, y:obsY, w:48, h:36, type}); else obstacles.push({x, y:obsY, w:52, h:52, type});
+  const x = width + Math.max(160, Math.round(width * 0.18));
+  const obsY = groundY - 28; // sit on ground
+  // keep obstacle sizes roughly consistent but avoid scaling speed with width
+  const scale = Math.max(1, width / 1280);
+  if(type==='rock') obstacles.push({x, y:obsY, w:48*scale, h:36*scale, type}); else obstacles.push({x, y:obsY, w:52*scale, h:52*scale, type});
   if(Math.random()<0.45){ coins.push({x:x+140, y:player.y + player.h - 36, r:12, collected:false}); }
 }
 
 function update(dt){ if(!running) return; // physics
- player.vy += gravity; player.y += player.vy; if(player.y >= 380){ player.y=380; player.vy=0; player.onGround=true; }
- // move obstacles
- for(let o of obstacles){ o.x -= 200*dt/1000; }
- obstacles = obstacles.filter(o=>o.x+o.w> -50);
- for(let c of coins){ c.x -= 200*dt/1000; }
- coins = coins.filter(c=>c.x> -50 && !c.collected);
- // collisions
- for(let i=0;i<obstacles.length;i++){ const o=obstacles[i]; if(rectOverlap(player,o)){ gameOver(); return; } }
+  // integrate physics (dt in ms)
+  player.vy += gravity * (dt / 16);
+  player.y += player.vy * (dt / 16);
+  if(player.y >= groundY - player.h){ player.y = groundY - player.h; player.vy = 0; player.onGround = true; }
+  // move obstacles — use configured base speed, with a small ramp by distance
+  const baseSpeed = cfgObstacleSpeed || 160;
+  const ramp = 1 + Math.min(1.2, distance / 2000); // up to ~2.2x over long play
+  const speed = Math.round(baseSpeed * ramp);
+  for(let o of obstacles){ o.x -= speed * dt/1000; }
+  obstacles = obstacles.filter(o=>o.x+o.w > -50);
+  for(let c of coins){ c.x -= speed * dt/1000; }
+  coins = coins.filter(c=>c.x > -50 && !c.collected);
+  // collisions
+  for(let i=0;i<obstacles.length;i++){ const o=obstacles[i]; if(rectOverlap(player,o)){ gameOver(); return; } }
  for(let c of coins){ if(circleRectOverlap(c, player)){ score += 100; c.collected=true; } }
- // update score/distance
- const elapsed = performance.now() - startTime; distance = Math.floor(elapsed/100); scoreEl.textContent = score; distEl.textContent = distance;
- // occasionally spawn
- spawnObstacle(performance.now());
+  // update score/distance
+  const elapsed = performance.now() - startTime; distance = Math.floor(elapsed/100); scoreEl.textContent = score; distEl.textContent = distance;
+  // occasionally spawn
+  spawnObstacle(performance.now());
 }
 
 function rectOverlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
@@ -155,11 +203,17 @@ if(closeGameover) closeGameover.addEventListener('click', ()=>{ gameOverPanel.cl
 // scores panel
 scoresBtn.addEventListener('click', ()=>{ loadScores(); scoresPanel.classList.add('is-active'); });
 closeScores.addEventListener('click', ()=>{ scoresPanel.classList.remove('is-active'); });
-clearScores.addEventListener('click', ()=>{ if(confirm('Clear all saved high scores?')){ Storage.clearHighScores(); loadScores(); } });
+clearScores.addEventListener('click', ()=>{
+  // require admin auth before clearing
+  if(window.requireAdminAuth){ window.requireAdminAuth(()=>{ if(confirm('Clear all saved high scores?')){ Storage.clearHighScores(); loadScores(); } }); }
+  else { if(confirm('Clear all saved high scores?')){ Storage.clearHighScores(); loadScores(); } }
+});
 
 function loadScores(){
   scoresListCached = Storage.getHighScores();
   // default sort already enforced by storage; apply any additional sorting
+  // show top 10 in the table
+  scoresPageSize = 10;
   applySort();
   scoresPage = 0;
   renderScoresPage();
@@ -233,20 +287,34 @@ function render(){ // background
   ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(150,80,60,30,0,0,Math.PI*2); ctx.ellipse(200,80,40,22,0,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.ellipse(600,60,70,36,0,0,Math.PI*2); ctx.fill();
  }
- // billboards (three), spaced evenly and moved slightly higher
- const bbW = 260, bbH = 120; const margin = (width - (bbW * 3)) / 4;
- const bx1 = margin; const bx2 = margin * 2 + bbW; const bx3 = margin * 3 + bbW * 2;
- drawBillboard(bx1, 80, bbW, bbH, billboardLeft);
- drawBillboard(bx2, 80, bbW, bbH, billboardCenter);
- drawBillboard(bx3, 80, bbW, bbH, billboardRight);
- // ground (moved up)
- ctx.fillStyle='#d3e39f'; ctx.fillRect(0,480,width,60);
- // path
- ctx.fillStyle='#b8855a'; ctx.fillRect(0,440,width,40);
- // flowers (moved down a bit relative to new ground)
- for(let i=20;i<width;i+=80){ ctx.fillStyle='white'; ctx.beginPath(); ctx.arc((i+ (distance%40)),560,8,0,Math.PI*2); ctx.fill(); ctx.fillStyle='yellow'; ctx.beginPath(); ctx.arc(i+ (distance%40),560,4,0,Math.PI*2); ctx.fill(); }
- // obstacles
- ctx.fillStyle='#777'; for(let o of obstacles){ if(o.type==='rock'){ ctx.fillStyle='#666'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2, o.y+o.h/2, o.w/2, o.h/2, 0, 0, Math.PI*2); ctx.fill(); } else { ctx.fillStyle='#b04'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.fillStyle='green'; ctx.fillRect(o.x+8,o.y-16, o.w-16,20); } }
+  // billboards (three), spaced evenly and moved slightly higher
+  const bbW = Math.max(160, Math.round(width * 0.19)), bbH = Math.max(80, Math.round(height * 0.17)); const margin = (width - (bbW * 3)) / 4;
+  const bx1 = margin; const bx2 = margin * 2 + bbW; const bx3 = margin * 3 + bbW * 2;
+  // use configured billboard offset (px from top). Clamp to reasonable bounds.
+  const bbY = Math.max(8, Math.min(Math.round(height * 0.3), cfgBillboardOffset));
+  drawBillboard(bx1, bbY, bbW, bbH, billboardLeft);
+  drawBillboard(bx2, bbY, bbW, bbH, billboardCenter);
+  drawBillboard(bx3, bbY, bbW, bbH, billboardRight);
+  // ground
+  ctx.fillStyle='#d3e39f'; ctx.fillRect(0, groundY, width, height - groundY);
+  // path
+  ctx.fillStyle='#b8855a'; ctx.fillRect(0, groundY - 40, width, 40);
+  // flowers (moved down a bit relative to new ground)
+  // continuous left-scrolling flower pattern that repeats seamlessly
+  const t = performance.now() / 1000; // seconds
+  const scrollSpeed = 30; // px per second
+  const spacing = Math.max(60, Math.round(width * 0.06));
+  const repeatWidth = spacing * 6; // pattern repeat width (enough to cover)
+  const base = (t * scrollSpeed) % repeatWidth; // continuous offset
+  const fy = groundY + Math.round((height - groundY) * 0.18);
+  // draw flowers across an extended range so wrapping is invisible
+  for(let x = -repeatWidth; x < width + repeatWidth; x += spacing){
+    const rx = x - base;
+    ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(rx, fy, Math.max(4, Math.round(width*0.008)), 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(rx, fy, Math.max(2, Math.round(width*0.004)), 0, Math.PI*2); ctx.fill();
+  }
+  // obstacles
+  for(let o of obstacles){ if(o.type==='rock'){ ctx.fillStyle='#666'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2, o.y+o.h/2, o.w/2, o.h/2, 0, 0, Math.PI*2); ctx.fill(); } else { ctx.fillStyle='#b04'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.fillStyle='green'; ctx.fillRect(o.x+Math.max(6, o.w*0.15), o.y - Math.max(12, o.h*0.3), o.w - Math.max(12, o.w*0.3), Math.max(12, o.h*0.4)); } }
  // coins
  for(let c of coins){ ctx.fillStyle='gold'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='orange'; ctx.fillText('G', c.x-4, c.y+4); }
  // player
@@ -254,22 +322,20 @@ function render(){ // background
  // UI overlays handled elsewhere
 }
 
-function drawBillboard(x,y,w,h, img){ // post legs
- // board (no posts)
- ctx.fillStyle='#fff'; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#8b5a3a'; ctx.strokeRect(x,y,w,h);
- if(img){ try{ ctx.drawImage(img, x+8, y+8, w-16, h-16); }catch(e){ ctx.fillStyle='#eee'; ctx.fillRect(x+8,y+8,w-16,h-16); ctx.fillStyle='#999'; ctx.fillText('Image', x+20,y+h/2); } } else {
-   ctx.fillStyle='#f4a261'; ctx.fillRect(x+8,y+8,w-16,h-16);
-   ctx.fillStyle='#fff'; ctx.font='18px sans-serif'; ctx.fillText('Upload billboard', x+20,y+h/2);
- }
+function drawBillboard(x,y,w,h, img){
+  // board
+  ctx.fillStyle='rgba(255,255,255,0.96)'; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle='rgba(120,80,40,0.9)'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+  if(img){ try{ ctx.drawImage(img, x+8, y+8, w-16, h-16); }catch(e){ ctx.fillStyle='#eee'; ctx.fillRect(x+8,y+8,w-16,h-16); ctx.fillStyle='#999'; ctx.fillText('Image', x+20,y+h/2); } } else {
+    ctx.fillStyle='#f4a261'; ctx.fillRect(x+8,y+8,w-16,h-16);
+    ctx.fillStyle='#fff'; ctx.font=Math.max(12, Math.round(w*0.06))+'px sans-serif'; ctx.fillText('Upload billboard', x+20,y + Math.round(h*0.55));
+  }
 }
 
 // collision helpers for circle
 
-// initial spawn of some coins
-for(let i=0;i<3;i++) coins.push({x:500 + i*200, y: player.y + player.h - 36, r:12, collected:false});
-
 // load any saved billboards initially
 loadBillboards();
 
-// small helper to adapt canvas size on high-DPI displays
-(function fixDPI(){ const dpr = window.devicePixelRatio || 1; const w = canvas.width; const h = canvas.height; canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; ctx.scale(dpr,dpr); })();
+// initialize canvas and scale for DPI; also populate a few starting coins
+(function initCanvas(){ resizeCanvas(); coins = []; for(let i=0;i<3;i++) coins.push({x:500 + i*200, y: player.y + player.h - 36, r:12, collected:false}); })();

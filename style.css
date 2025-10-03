@@ -1,32 +1,38 @@
 * { box-sizing: border-box; }
-.body, body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #cbeef2; height:100vh; }
+body { font-family: 'Montserrat', Arial, Helvetica, sans-serif; margin: 0; background: linear-gradient(180deg,#a9e0f2 0%, #cbeef2 60%); min-height:100vh; color: #222 }
 .navbar { box-shadow: 0 2px 6px rgba(0,0,0,0.06) }
 .hero, main { margin: 0 }
-/* full-screen game container */
-#game-wrap { position:relative; width:100vw; height:calc(100vh - 64px); overflow:hidden; }
-canvas { width:100%; height:100%; display:block }
+/* full-viewport game container */
+#game-wrap { position:relative; width:100%; height:100vh; overflow:hidden; display:flex; align-items:stretch; justify-content:center }
+canvas { width:100%; height:100%; display:block; max-width:1920px; background: transparent }
 
 /* bottom controls */
-#bottom-controls { position:absolute; left:16px; bottom:20px; display:flex; gap:8px }
-.jump-button { position:absolute; right:20px; bottom:18px; background:#e74c3c; color:#fff; border:none; border-radius:12px; padding:20px 28px; font-size:20px; box-shadow:0 6px 16px rgba(0,0,0,0.2); }
+#bottom-controls { position:absolute; left:50%; transform:translateX(-50%); bottom:18px; display:flex; gap:12px; z-index:30; pointer-events:auto }
+.button { border-radius:8px }
+.jump-button { position:absolute; right:24px; bottom:22px; background:#ff5a5f; color:#fff; border:none; border-radius:14px; padding:14px 20px; font-size:18px; box-shadow:0 8px 20px rgba(0,0,0,0.18); cursor:pointer }
 .jump-button:active { transform: translateY(2px); }
 
 .panel { display:none }
 .modal.is-active { display:block }
 .upload-row { display:flex; align-items:center; gap:8px; margin-bottom:8px }
 .preview { width:120px; height:60px; object-fit:cover; border:1px solid #ddd }
-#preview-bg { width:200px; height:80px }
+#preview-bg { width:220px; height:100px }
 #preview-center { width:140px; height:70px }
 .config-actions { display:flex; gap:8px; margin-top:8px }
 #logged-as { font-weight:700; margin-left:8px }
 /* small responsive */
-@media (max-width:900px){ canvas{width:100%;height:480px} .modal-card{ width:95%; margin: auto } }
+@media (max-width:900px){ canvas{width:100%;height:60vh} .modal-card{ width:95%; margin: auto } 
+	.jump-button{ padding:12px 16px; font-size:16px; right:12px; bottom:16px }
+}
 
 /* top overlay */
-#top-overlay { position:absolute; left:0; right:0; top:12px; display:flex; justify-content:space-between; align-items:center; padding:0 18px; pointer-events:none }
-#top-overlay .overlay-left, #top-overlay .overlay-right { pointer-events:auto }
-.score-label, .distance-label { font-family: 'Montserrat', sans-serif; font-weight:700; color:#1b5e20; margin-right:12px }
-.distance-label { color:#0d47a1 }
+#top-overlay { position:absolute; left:0; right:0; top:16px; display:flex; justify-content:space-between; align-items:center; padding:0 24px; pointer-events:none; z-index:40 }
+#top-overlay .overlay-left, #top-overlay .overlay-right { pointer-events:auto; display:flex; align-items:center }
+.score-label, .distance-label { font-weight:700; color:#093; background: rgba(255,255,255,0.85); padding:8px 12px; border-radius:999px; box-shadow:0 6px 18px rgba(14,30,37,0.08); margin-right:12px }
+.distance-label { color:#0b6; }
+
+/* keep buttons close but not touching */
+.overlay-right .button { margin-left:8px }
 
 /* selected/highlighted score row */
 tr.is-selected { background: linear-gradient(90deg, rgba(255,255,0,0.12), rgba(255,255,0,0.04)); }
@@ -38,3 +44,9 @@ tr.is-selected { background: linear-gradient(90deg, rgba(255,255,0,0.12), rgba(2
 	60% { background-color: rgba(255,255,0,0.12); }
 	100% { background-color: transparent; }
 }
+
+/* subtle semi-hidden signature */
+#signature{ position:absolute; right:12px; bottom:8px; font-size:12px; color:rgba(0,0,0,0.12); transform:rotate(-12deg) translateY(6px); letter-spacing:1px; z-index:5; pointer-events:none }
+
+/* improve cover for small screens to show controls above canvas */
+@media (max-height:600px){ #game-wrap{ align-items:flex-start } #top-overlay{ top:8px } #bottom-controls{ bottom:8px } }
