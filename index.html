@@ -17,11 +17,12 @@
     <div id="game-wrap">
       <div id="top-overlay">
         <div class="overlay-left">
-          <div class="label score-label">Score: <span id="score">0</span></div>
-          <div class="label distance-label">Distance: <span id="distance">0</span>m</div>
+          <div class="label score-label"><span class="label-key">Score:</span><span class="label-val" id="score">0</span></div>
+          <div class="label distance-label"><span class="label-key">Distance:</span><span class="label-val" id="distance">0</span><span class="label-unit"> m</span></div>
         </div>
         <div class="overlay-right">
-          <button id="config-btn" class="button is-light is-small">Config</button>
+          <button id="config-btn" class="button is-light is-small">Graphic Config</button>
+          <button id="game-config-btn" class="button is-light is-small">Game Config</button>
           <button id="scores-btn" class="button is-light is-small">High Scores</button>
         </div>
       </div>
@@ -29,9 +30,23 @@
   <div id="signature">orlandocali</div>
       <div id="bottom-controls">
         <button id="start-btn" class="button is-primary">Start</button>
-        <button id="restart-btn" class="button is-warning">Restart</button>
       </div>
       <button id="jump-btn" class="jump-button">Jump</button>
+      <div id="debug-box" class="debug-box" aria-hidden="true">
+        <div class="dbg-header"><strong>Physics telemetry</strong><button id="dbg-close" class="dbg-close" title="Hide">✕</button></div>
+        <div class="dbg-row">
+          <div class="pair"><span class="dbg-key">Gravity:</span> <span class="dbg-val" id="dbg-g">0</span></div>
+          <div class="pair"><span class="dbg-key">Jump H:</span> <span class="dbg-val" id="dbg-jh">-</span></div>
+        </div>
+        <div class="dbg-row">
+          <div class="pair"><span class="dbg-key">Y:</span> <span class="dbg-val" id="dbg-y">0</span></div>
+          <div class="pair"><span class="dbg-key">Vy:</span> <span class="dbg-val" id="dbg-vy">0</span></div>
+        </div>
+        <div class="dbg-row">
+          <div class="pair"><span class="dbg-key">Obs spd:</span> <span class="dbg-val" id="dbg-os">-</span></div>
+          <div class="pair"><span class="dbg-key">Obs gap:</span> <span class="dbg-val" id="dbg-og">-</span></div>
+        </div>
+      </div>
     </div>
 
     <div id="config-panel" class="modal">
@@ -44,20 +59,7 @@
         <div class="control"><input id="setting-bb-offset" type="range" min="0" max="200" value="80" /></div>
         <p class="help">Lower value moves billboards up; higher value moves them down (px relative)</p>
       </div>
-      <div class="field">
-        <label class="label">Obstacle spacing</label>
-        <div class="control"><input id="setting-obs-spacing" type="range" min="0" max="100" value="50" /></div>
-        <p class="help">Lower value increases average gap between obstacles (easier)</p>
-      </div>
-      <div class="field">
-        <label class="label">Obstacle base speed</label>
-        <div class="control"><input id="setting-obs-speed" type="range" min="80" max="360" value="160" /></div>
-        <p class="help">Base obstacle speed in px/sec (lower is easier)</p>
-      </div>
-      <div class="field">
-        <label class="checkbox"><input id="setting-width-scale" type="checkbox" /> Use width-based physics scaling</label>
-        <p class="help">When enabled jump/gravity scale with window width (alternative to height)</p>
-      </div>
+      <!-- graphic panel only includes billboard & background uploads -->
       <div class="upload-row">
         <label>Left Billboard image
           <input type="file" id="billboard-left" accept="image/*" />
@@ -86,6 +88,53 @@
         <footer class="modal-card-foot">
           <button id="save-config" class="button is-success">Save</button>
           <button id="reset-config" class="button">Reset to default</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Game configuration modal (password-protected) -->
+    <div id="game-panel" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head"><p class="modal-card-title">Game Configuration</p><button id="close-game-config" class="delete" aria-label="close"></button></header>
+        <section class="modal-card-body">
+      <div class="field">
+        <label class="label">Obstacle spacing</label>
+        <div class="control"><input id="setting-obs-spacing" type="range" min="0" max="100" value="50" /></div>
+        <p class="help">Lower value increases average gap between obstacles (easier)</p>
+      </div>
+      <div class="field">
+        <label class="label">Obstacle base speed</label>
+        <div class="control"><input id="setting-obs-speed" type="range" min="80" max="360" value="160" /></div>
+        <p class="help">Base obstacle speed in px/sec (lower is easier)</p>
+      </div>
+      <div class="field">
+        <label class="label">Jump height</label>
+        <div class="control"><input id="setting-jump-height" type="range" min="20" max="400" value="120" /></div>
+        <p class="help">Set the approximate peak height (pixels) the player will reach when jumping</p>
+      </div>
+      <div class="field">
+        <label class="label">Hang time tuning (min gravity multiplier)</label>
+        <div class="control"><input id="setting-min-grav" type="range" min="0.2" max="1" step="0.05" value="0.45" /></div>
+        <p class="help">Lower values increase hang time on small screens (0.2..1)</p>
+      </div>
+      <div class="field">
+        <label class="label">Global gravity multiplier</label>
+        <div class="control"><input id="setting-grav-global" type="range" min="0.5" max="1.5" step="0.05" value="1" /></div>
+        <p class="help">Fine tune overall airtime; values &lt;1 increase hang time</p>
+      </div>
+      <div class="field">
+        <label class="checkbox"><input id="setting-show-physics" type="checkbox" /> Show physics window</label>
+        <p class="help">Toggle the on-screen physics telemetry window</p>
+      </div>
+      <div class="field">
+        <label class="checkbox"><input id="setting-width-scale" type="checkbox" /> Use width-based physics scaling</label>
+        <p class="help">When enabled jump/gravity scale with window width (alternative to height)</p>
+      </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button id="save-game-config" class="button is-success">Save</button>
+          <button id="reset-game-config" class="button">Reset to default</button>
         </footer>
       </div>
     </div>
@@ -155,8 +204,6 @@
 
   </main>
 
-  <script src="storage.js"></script>
-  <script src="config.js"></script>
-  <script src="game.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

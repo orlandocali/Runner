@@ -1,8 +1,13 @@
+import { Storage } from './storage.js';
+
 // handles config UI and billboard uploads
 document.addEventListener('DOMContentLoaded', ()=>{
   const configBtn = document.getElementById('config-btn');
   const configPanel = document.getElementById('config-panel');
   const closeConfig = document.getElementById('close-config');
+  const gameConfigBtn = document.getElementById('game-config-btn');
+  const gamePanel = document.getElementById('game-panel');
+  const closeGameConfig = document.getElementById('close-game-config');
   const saveBtn = document.getElementById('save-config');
   const resetBtn = document.getElementById('reset-config');
   const leftInput = document.getElementById('billboard-left');
@@ -17,6 +22,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const obsSpeed = document.getElementById('setting-obs-speed');
   const obsSpacing = document.getElementById('setting-obs-spacing');
   const widthScale = document.getElementById('setting-width-scale');
+  const jumpHeight = document.getElementById('setting-jump-height');
+  const minGrav = document.getElementById('setting-min-grav');
+  const gravGlobal = document.getElementById('setting-grav-global');
   const pwModal = document.getElementById('pw-modal');
   const pwInput = document.getElementById('pw-input');
   const pwOk = document.getElementById('pw-ok');
@@ -34,8 +42,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function showPwModal(mode, cb){ _pwMode = mode; _pwCallback = cb; if(pwModal){ pwInput.value=''; pwModal.classList.add('is-active'); const title = pwModal.querySelector('.modal-card-title'); if(title) title.textContent = (mode==='set') ? 'Set admin password' : 'Enter password'; setTimeout(()=>pwInput.focus(),150); } }
   function hidePwModal(){ if(pwModal) pwModal.classList.remove('is-active'); _pwCallback = null; }
 
-  // Expose auth helper for other modules
-  window.requireAdminAuth = async function(onSuccess){
+  // Expose auth helper for other modules (attach to window for compatibility)
+  async function requireAdminAuth(onSuccess){
     const storedHash = localStorage.getItem('runner:auth:hash');
     const storedSalt = localStorage.getItem('runner:auth:salt');
     if(!storedHash || !storedSalt){
@@ -59,7 +67,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         else { alert('Incorrect password'); }
       });
     }
-  };
+  }
+  window.requireAdminAuth = requireAdminAuth;
 
   // modal button handlers
   if(pwOk) pwOk.addEventListener('click', async ()=>{ if(_pwCallback) await _pwCallback(); });
@@ -76,14 +85,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
     previewRight.src = r || '';
     if(previewBg) previewBg.src = b || '';
     // load saved settings
-    const savedBb = Storage.getSetting('billboardOffset') || 80;
-    const savedObs = Storage.getSetting('obstacleSpeed') || 160;
+  const savedBb = Storage.getSetting('billboardOffset') || 80;
+  const savedObs = Storage.getSetting('obstacleSpeed') || 160;
   const savedSpacing = Storage.getSetting('obstacleSpacing');
-    const savedWidth = Storage.getSetting('widthScale') || false;
-    if(bbOffset) bbOffset.value = savedBb;
-    if(obsSpeed) obsSpeed.value = savedObs;
+  const savedWidth = Storage.getSetting('widthScale') || false;
+  const savedJump = Storage.getSetting('jumpHeight') || 120;
+  const savedMinGrav = Storage.getSetting('minGravityMult') || 0.45;
+  const savedGravGlobal = Storage.getSetting('gravityGlobalMult') || 1;
+  const savedShowPhysics = Storage.getSetting('showPhysics') || false;
+  if(bbOffset) bbOffset.value = savedBb;
+  if(obsSpeed) obsSpeed.value = savedObs;
   if(obsSpacing) obsSpacing.value = (typeof savedSpacing === 'number') ? savedSpacing : 50;
-    if(widthScale) widthScale.checked = savedWidth;
+  if(widthScale) widthScale.checked = savedWidth;
+  if(jumpHeight) jumpHeight.value = savedJump;
+  if(minGrav) minGrav.value = savedMinGrav;
+  if(gravGlobal) gravGlobal.value = savedGravGlobal;
+  if(document.getElementById('setting-show-physics')) document.getElementById('setting-show-physics').checked = !!savedShowPhysics;
   }
   loadPreviews();
 
@@ -92,6 +109,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     else { configPanel.classList.add('is-active'); loadPreviews(); }
   });
   closeConfig.addEventListener('click', ()=>{ configPanel.classList.remove('is-active') });
+
+  // game config actions (password-protected)
+  gameConfigBtn.addEventListener('click', ()=>{
+    if(window.requireAdminAuth){ window.requireAdminAuth(()=>{ gamePanel.classList.add('is-active'); loadPreviews(); }); }
+    else { gamePanel.classList.add('is-active'); loadPreviews(); }
+  });
+  closeGameConfig.addEventListener('click', ()=>{ gamePanel.classList.remove('is-active') });
 
   function readFileAsDataURL(file, cb){ const fr = new FileReader(); fr.onload = e=>cb(e.target.result); fr.readAsDataURL(file); }
 
@@ -107,6 +131,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(previewBg) Storage.setBackground(previewBg.src || null);
     // save settings
     Storage.setSetting('billboardOffset', parseInt(bbOffset.value,10));
+    // graphic-only saves
+    // notify game and reload to apply changes
     Storage.setSetting('obstacleSpeed', parseInt(obsSpeed.value,10));
     Storage.setSetting('obstacleSpacing', parseInt(obsSpacing.value,10));
     Storage.setSetting('widthScale', !!widthScale.checked);
@@ -118,6 +144,38 @@ document.addEventListener('DOMContentLoaded', ()=>{
   configPanel.classList.remove('is-active');
   setTimeout(()=>{ window.location.reload(); }, 200);
   });
+
+  // game config saves (jump height, spacing, speed, width-scale)
+  const saveGameBtn = document.getElementById('save-game-config');
+  const resetGameBtn = document.getElementById('reset-game-config');
+  if(saveGameBtn){ saveGameBtn.addEventListener('click', ()=>{
+  Storage.setSetting('obstacleSpeed', parseInt(obsSpeed.value,10));
+  Storage.setSetting('obstacleSpacing', parseInt(obsSpacing.value,10));
+  Storage.setSetting('widthScale', !!widthScale.checked);
+  Storage.setSetting('jumpHeight', parseInt(jumpHeight.value,10));
+  Storage.setSetting('minGravityMult', parseFloat(minGrav.value));
+  Storage.setSetting('gravityGlobalMult', parseFloat(gravGlobal.value));
+  const showPhysics = (document.getElementById('setting-show-physics') || {}).checked;
+  Storage.setSetting('showPhysics', !!showPhysics);
+    gamePanel.classList.remove('is-active');
+    // notify runtime to apply changes live
+    window.dispatchEvent(new Event('game-config-saved'));
+    // brief feedback
+    alert('Game settings saved');
+  }); }
+  if(resetGameBtn){ resetGameBtn.addEventListener('click', ()=>{
+    if(confirm('Reset game settings to defaults?')){
+      Storage.setSetting('obstacleSpeed', 160);
+      Storage.setSetting('obstacleSpacing', 50);
+      Storage.setSetting('widthScale', false);
+      Storage.setSetting('jumpHeight', 120);
+  // gravity setting removed from UI; nothing to reset here
+      loadPreviews();
+      gamePanel.classList.remove('is-active');
+      alert('Game settings reset');
+      window.dispatchEvent(new Event('game-config-saved'));
+    }
+  }); }
 
   resetBtn.addEventListener('click', ()=>{
     if(confirm('Reset billboards to default?')){
